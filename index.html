@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Metamob Arena & Prediction Market</title>
 
+    <!-- Set this to your real backend URL (e.g. your Railway app's public domain).
+         Without this, the page tries to talk to localhost:8787, which doesn't
+         exist on a live site - that's what was causing admin/faucet/market
+         buttons to appear to do nothing. -->
+    <script>window.METAMOB_API_BASE = "https://metama-center-production.up.railway.app";</script>
+
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
 
     <!-- Ad network tag -->
@@ -248,11 +254,16 @@
         const connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com", "confirmed");
 
         async function api(path, opts = {}) {
-            const res = await fetch(API_BASE + path, {
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
-                ...opts
-            });
+            let res;
+            try {
+                res = await fetch(API_BASE + path, {
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    ...opts
+                });
+            } catch (networkErr) {
+                throw new Error(`Can't reach the backend at ${API_BASE}. Is it running, and is METAMOB_API_BASE set correctly?`);
+            }
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || res.statusText);
             return data;
@@ -632,14 +643,18 @@
         }
 
         async function openAdminModal() {
-            const isAdmin = await refreshAdminSession();
-            if (!isAdmin) {
-                document.getElementById('admin-login-modal').style.display = 'flex';
-            } else {
-                document.getElementById('admin-modal').style.display = 'flex';
-                loadGames();
-                loadOpenMarketsForAdmin();
-                loadSponsoredList();
+            try {
+                const isAdmin = await refreshAdminSession();
+                if (!isAdmin) {
+                    document.getElementById('admin-login-modal').style.display = 'flex';
+                } else {
+                    document.getElementById('admin-modal').style.display = 'flex';
+                    loadGames();
+                    loadOpenMarketsForAdmin();
+                    loadSponsoredList();
+                }
+            } catch (e) {
+                alert(e.message);
             }
         }
         function closeAdminModal() { document.getElementById('admin-modal').style.display = 'none'; }
